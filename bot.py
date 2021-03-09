@@ -1,13 +1,7 @@
 #!/usr/bin/python3
-''''
-Author: Rehman Ali
-Python version used: Python3
-
-NOTE: Please don't mess with code if you don't understand what you are doing.
-'''
 
 import conf as config 
-import socks 
+import socks
 import discord
 from discord import errors
 import requests
@@ -19,6 +13,9 @@ from colorama import Back, Fore, init, Style
 from aiohttp import client_exceptions as clientExcps
 import os
 import keep_alive
+import time
+import threading
+import json
 
 init(autoreset=True)
 
@@ -96,13 +93,14 @@ def matchChannel(channel, list):
 	return found
 
 
-def sendMsg(url):
+def sendMsg(url, silent: bool = True):
+	URL = f'{url}&disable_notification={str(silent).lower()}'
 	attempts = 0
 	while True:
 		if attempts < 5:
 			try:
 				print("[+] Sending Message to Telegram ...")
-				resp = requests.post(url)
+				resp = requests.post(URL)
 				if resp.status_code == 200:
 					print(f"{colorSchemes.SUCCESS}[+] Message sent!\n")
 					break
@@ -142,16 +140,18 @@ if config.PROXY:
 async def on_message(message):
 	try:
 		serverName = message.guild.name
-		serversList = config.serversList.keys()
+		serversList = config.serversDict.keys()
 		channelName = message.channel.name
 	except AttributeError:
 		pass
 	#print(f"Server: {serverName}, Channel: {channelName}")
 	if serverName in serversList:
-		channelsList = config.serversList[serverName]
-		if matchChannel(channelName, channelsList):
+		channelsDict = config.serversDict[serverName]
+		if matchChannel(channelName, channelsDict.keys()):
+			chatList = channelsDict[channelName]
 			print(f"\n-------------------------------------------\n[+] Channel: {channelName}")
 			if message.content and '/broadcast' in message.content:
+				silent = '--silent' in message.content or '-s' in message.content
 				if message.mentions:
 					# print(f"\n----------------\nUser Mentioned\n----------------")
 					message.content = replaceMentions(message.mentions, message.content, channel=False)
@@ -161,26 +161,26 @@ async def on_message(message):
 				toSend = f"{message.guild}/{message.channel}/{message.author.name}: {message.content}"
 				print(f"[+] Message: {toSend}")
 				toSend = removeTags(toSend)
-				for chat_id in config.telegramChatIdList:
+				for chat_id in chatList:
 					url = f"{baseUrl}/sendMessage?text={toSend}&chat_id={chat_id}"
-					sendMsg(url)
+					sendMsg(url, silent)
 
 					if message.attachments:
 						attachmentUrl = message.attachments[0].url
 						if isPhoto(attachmentUrl):
 							url = f"{baseUrl}/sendPhoto?photo={attachmentUrl}&chat_id={chat_id}"
-							sendMsg(url)
+							sendMsg(url, silent)
 						elif isVideo(attachmentUrl):
 							url = f"{baseUrl}/sendVideo?video={attachmentUrl}&chat_id={chat_id}"
-							sendMsg(url)
+							sendMsg(url, silent)
 						elif isDoc(attachmentUrl):
 							url = f"{baseUrl}/sendDocument?document={attachmentUrl}&chat_id={chat_id}"
-							sendMsg(url)
+							sendMsg(url, silent)
 					
 			if message.embeds:
 				embed = message.embeds[0].to_dict()
 				print(embed)
-				for chat_id in config.telegramChatIdList:
+				for chat_id in chatList:
 					if str(embed['type']) == "rich":
 						if 'title' in embed.keys() and 'description' in embed.keys():
 							toSend = f"{message.guild}/{message.channel}/{message.author.name}: {embed['title']}\n{embed['description']}"
@@ -200,11 +200,47 @@ async def on_message(message):
 						url = f"{baseUrl}/sendMessage?text={toSend}&chat_id={chat_id}"
 						sendMsg(url)
 
+'''
+offset = 0
+
+def thread_function(name):
+	global offset
+
+	logging.info("Thread %s: starting", name)
+	
+	whurl = os.getenv('DISCORD_TOKEN_WEBHOOK') #webhook url
+	session = requests.session()
+
+	updates = session.get(f"https://api.telegram.org/bot1652690303:AAG19dceth4Tbcqm6tju9XytrR-dVjIDM98/getUpdates?allowed_updates=[%22poll%22,%20%22poll_answer%22]&offset={offset}")
+
+	updates = updates.json()["result"]
+	offset = updates[-1]["update_id"]
+
+	data = {}
+	data["content"] = str(updates.json()["result"])
+	data["username"] = "DisTelConHook"
+
+	result = requests.post(whurl, json=data)
+
+	try:
+		result.raise_for_status()
+	except requests.exceptions.HTTPError as err:
+		print(err)
+	else:
+		print("Payload delivered successfully, code {}.".format(result.status_code))
+
+
+	time.sleep(2)
+
+	logging.info("Thread %s: finishing", name)
+'''
 
 #Run the bot using the user token
 try:
 	keep_alive.keep_alive()
 	bot.run(os.getenv('DISCORD_TOKEN'))
+	# x = threading.Thread(target=thread_function, args=(1,))
+	# x.start()
 except RuntimeError:
 	print("\n\nPlease Wait ...\nShutting down the bot ... \n")
 	quit()

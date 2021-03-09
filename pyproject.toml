@@ -16,6 +16,7 @@ python-dotenv = "^0.15.0"
 colorama = "^0.4.4"
 python-box = "^5.3.0"
 twilio = "^6.53.0"
+pysocks = "^1.7.1"
 
 [tool.poetry.dev-dependencies]
 
