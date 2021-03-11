@@ -76,6 +76,17 @@ version = "1.0.1"
 
 [[package]]
 category = "main"
+description = "A Discord.py extension allowing you to pass flags as arguments."
+name = "discord-flags"
+optional = false
+python-versions = "*"
+version = "2.1.1"
+
+[package.dependencies]
+"discord.py" = ">=1.2.5"
+
+[[package]]
+category = "main"
 description = "A Python wrapper for the Discord API"
 name = "discord.py"
 optional = false
@@ -330,7 +341,7 @@ idna = ">=2.0"
 multidict = ">=4.0"
 
 [metadata]
-content-hash = "fb6076e699cf9ebe8e17bd63b982e6f75c1d45274c1393b4ab4b03d77fe20cac"
+content-hash = "27f9f53a371943ccc33fc96ccf9e3e78c07f17fd579ebed8a8e4aad6c3cf12c3"
 python-versions = "^3.8"
 
 [metadata.files]
@@ -396,6 +407,10 @@ colorama = [
 discord = [
     {file = "discord-1.0.1-py3-none-any.whl", hash = "sha256:9d4debb4a37845543bd4b92cb195bc53a302797333e768e70344222857ff1559"},
     {file = "discord-1.0.1.tar.gz", hash = "sha256:ff6653655e342e7721dfb3f10421345fd852c2a33f2cca912b1c39b3778a9429"},
+]
+discord-flags = [
+    {file = "discord-flags-2.1.1.tar.gz", hash = "sha256:0fba0574fd21f29cb395f1bf66251d6f0b8415a50c160f1363589300e0174848"},
+    {file = "discord_flags-2.1.1-py3-none-any.whl", hash = "sha256:91075d38cfe2a2b7be6cff656645ebbcde7ee3afe402c69d5163f2021f6c1d04"},
 ]
 "discord.py" = [
     {file = "discord.py-1.6.0-py3-none-any.whl", hash = "sha256:3df148daf6fbcc7ab5b11042368a3cd5f7b730b62f09fb5d3cbceff59bcfbb12"},

@@ -4,6 +4,7 @@ import conf as config
 import socks
 import discord
 from discord import errors
+from discord.ext import flags, commands
 import requests
 import socket
 import re
@@ -13,9 +14,13 @@ from colorama import Back, Fore, init, Style
 from aiohttp import client_exceptions as clientExcps
 import os
 import keep_alive
-import time
-import threading
-import json
+# import time
+# import threading
+# import json
+import wikiquote
+import random
+from replit import db
+import const
 
 init(autoreset=True)
 
@@ -32,7 +37,79 @@ logging.basicConfig(format=f'{colorSchemes.FAILURE}[%(levelname) 5s/%(asctime)s]
 
 
 bot = discord.Client()
+bot = commands.Bot(command_prefix = '\\') # command prefix is \
 baseUrl = f"https://api.telegram.org/bot{os.getenv('TELEGRAM_TOKEN')}"
+
+def __init_quote_lang__(lang: str = 'en'):
+	try:
+		l = db[const.QUOTE_LANG_DB_KEY]
+		if(l in wikiquote.supported_languages()):
+			return l
+		else:
+			raise KeyError
+	except KeyError:
+		db[const.QUOTE_LANG_DB_KEY] = lang
+		return lang
+
+
+
+@bot.event
+async def on_ready():
+	print("DisBot online") #will print "DisBot online" in the console when the bot is online
+
+
+
+@bot.command(help='Simple command which make the bot  respond with "pong!" when you type "\\ping"')
+async def ping(ctx):
+    await ctx.send("pong!") #simple command so that when you type "\ping" the bot will respond with "pong!"
+
+
+
+@bot.command(help='Gives you a quote. Change the language with \\lang command')
+async def quote(ctx):
+  global quote_lang
+  quote = None
+  source = None
+  while(quote == None and source == None):
+    sources = []
+    while(sources == []):
+      sources = wikiquote.random_titles(lang=quote_lang)
+    choices = []
+    i = 0
+    while(choices == [] and i < len(sources)):
+      source = sources[i]
+      choices = wikiquote.quotes(source, lang=quote_lang)
+      i+=1
+    quote = random.choice(choices)
+  await ctx.send(f"{quote}\n- {source}")
+
+
+
+@bot.command(help='Change language setting for quotes')
+async def lang(ctx, new_lang: str = None):
+	global quote_lang
+	if(new_lang == None):
+		await ctx.send(f"No param was given! Language is {quote_lang}")
+		return
+	try:
+		l = new_lang.lower()
+		if(l in wikiquote.supported_languages()):
+			db[const.QUOTE_LANG_DB_KEY] = l
+			quote_lang = l
+			await ctx.send(f"Quote Language updated => {quote_lang}")
+		else:
+			await ctx.send(f"Quote Language '{l}' is not supported. Language is {quote_lang}")
+	except:
+		await ctx.send("Ops! Something went wrong, how embarassing!🙈")
+
+
+
+@bot.command(help = 'Invite the bot to your server')
+async def invite(ctx):
+	emb = discord.Embed(title = "Invite me", url = discord.utils.oauth_url(bot.user.id, permissions = discord.Permissions(permissions=519232)), colour = discord.Colour.blurple())
+	await ctx.send(embed = emb)
+
+
 
 
 def replaceMentions(mentions, msg, channel):
@@ -93,7 +170,8 @@ def matchChannel(channel, list):
 	return found
 
 
-def sendMsg(url, silent: bool = True):
+
+def sendMsg(url, silent: bool = False):
 	URL = f'{url}&disable_notification={str(silent).lower()}'
 	attempts = 0
 	while True:
@@ -118,6 +196,7 @@ def sendMsg(url, silent: bool = True):
 
 
 
+
 if config.PROXY:
 	if config.AUTHENTICATION:
 		if config.USERNAME != None and config.PASSWORD != None:
@@ -138,6 +217,7 @@ if config.PROXY:
 
 @bot.event
 async def on_message(message):
+	await bot.process_commands(message)
 	try:
 		serverName = message.guild.name
 		serversList = config.serversDict.keys()
@@ -150,7 +230,7 @@ async def on_message(message):
 		if matchChannel(channelName, channelsDict.keys()):
 			chatList = channelsDict[channelName]
 			print(f"\n-------------------------------------------\n[+] Channel: {channelName}")
-			if message.content and '/broadcast' in message.content:
+			if message.content and '\\broadcast' in message.content:
 				silent = '--silent' in message.content or '-s' in message.content
 				if message.mentions:
 					# print(f"\n----------------\nUser Mentioned\n----------------")
@@ -200,6 +280,9 @@ async def on_message(message):
 						url = f"{baseUrl}/sendMessage?text={toSend}&chat_id={chat_id}"
 						sendMsg(url)
 
+
+
+
 '''
 offset = 0
 
@@ -238,6 +321,7 @@ def thread_function(name):
 #Run the bot using the user token
 try:
 	keep_alive.keep_alive()
+	quote_lang = __init_quote_lang__()
 	bot.run(os.getenv('DISCORD_TOKEN'))
 	# x = threading.Thread(target=thread_function, args=(1,))
 	# x.start()
