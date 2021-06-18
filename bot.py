@@ -21,6 +21,7 @@ import wikiquote
 import random
 from replit import db
 import const
+import json
 
 init(autoreset=True)
 
@@ -181,7 +182,8 @@ def sendMsg(url, silent: bool = False):
 				resp = requests.post(URL)
 				if resp.status_code == 200:
 					print(f"{colorSchemes.SUCCESS}[+] Message sent!\n")
-					break
+					# break
+					return json.loads(resp.text)['result']['message_id']
 				elif resp.status_code != 200:
 					raise OSError
 			except OSError:
@@ -215,6 +217,47 @@ if config.PROXY:
 
 
 
+@flags.add_flag("--silent", type=bool, default = False)
+@flags.add_flag("--question", default="Cose vediamo stavolta?")
+@flags.add_flag("--options", type=str, nargs='+')
+@flags.command(help = "this command send a poll to configured telegram chats")
+async def sendPoll(ctx, **flags):
+	# e.g. \sendPoll --question "Ancora una volta ciao!!" --options "Fino all'ultimo indizio" "La teoria del tutto" "Il principe cerca figlio" "Osmosi Jones" "Le follie dell'imperatore"
+	try:
+		silent = flags['silent']
+		question = requests.utils.quote(flags['question'])
+		options = "[" + '", "'.join(flags['options']).join(['"', '"']) + "]"
+		print(options)
+	except Exception as e:
+		print(f'Args parsing raised an exception:\t{e}')
+		pass
+	try:
+		serverName = ctx.guild.name
+		serversList = config.serversDict.keys()
+		pollServersList = config.pollServDict.keys()
+		channelName = ctx.channel.name
+	except AttributeError:
+		pass
+	# print(f"Server: {serverName}, Channel: {channelName}")
+	if serverName in serversList and serverName in pollServersList:
+		chatDict = config.pollServDict[serverName]
+		if channelName in chatDict.keys():
+			print(f"\n-------------------------------------------\n[+] Channel: {channelName}")
+			poll_chat_id = chatDict[channelName]
+			url = f"{baseUrl}/sendPoll?question={question}&chat_id={poll_chat_id}&options={options}&is_anonymous=False&allows_multiple_answers=True"
+			print(url)
+			msg_id = sendMsg(url, silent)
+			if msg_id is not None:
+				await ctx.send(f"\\broadcast @everyone\n{flags['question']}\nVotate tramite i link che seguono.\n\nInvito al gruppo:\n{os.getenv('TELEGRAM_CHILL_GROUP_INVITE')}\nLink del sondaggio:\nhttps://t.me/c/{abs(int(poll_chat_id))-1000000000000}/{msg_id}")
+
+bot.add_command(sendPoll)
+# https://core.telegram.org/bots/api#sendpoll
+
+
+
+
+
+
 @bot.event
 async def on_message(message):
 	await bot.process_commands(message)
@@ -224,14 +267,14 @@ async def on_message(message):
 		channelName = message.channel.name
 	except AttributeError:
 		pass
-	#print(f"Server: {serverName}, Channel: {channelName}")
+	# print(f"Server: {serverName}, Channel: {channelName}")
 	if serverName in serversList:
 		channelsDict = config.serversDict[serverName]
 		if matchChannel(channelName, channelsDict.keys()):
 			chatList = channelsDict[channelName]
 			print(f"\n-------------------------------------------\n[+] Channel: {channelName}")
 			if message.content and '\\broadcast' in message.content:
-				silent = '--silent' in message.content or '-s' in message.content
+				silent = '--silent' in message.content
 				if message.mentions:
 					# print(f"\n----------------\nUser Mentioned\n----------------")
 					message.content = replaceMentions(message.mentions, message.content, channel=False)
@@ -294,7 +337,7 @@ def thread_function(name):
 	whurl = os.getenv('DISCORD_TOKEN_WEBHOOK') #webhook url
 	session = requests.session()
 
-	updates = session.get(f"https://api.telegram.org/bot1652690303:AAG19dceth4Tbcqm6tju9XytrR-dVjIDM98/getUpdates?allowed_updates=[%22poll%22,%20%22poll_answer%22]&offset={offset}")
+	updates = session.get(f"{baseUrl}/getUpdates?allowed_updates=[%22poll%22,%20%22poll_answer%22]&offset={offset}")
 
 	updates = updates.json()["result"]
 	offset = updates[-1]["update_id"]
